@@ -1,0 +1,5 @@
+target
+.idea
+.smarttomcat
+*.png
+.DS_Store

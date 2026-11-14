@@ -1,0 +1,113 @@
+<%-- ============================================================
+     Shared navigation bar — included at the top of every logged-in page.
+     It also:
+       * declares esc(), used by every page to HTML-escape user data (XSS protection, NFR04)
+       * shows the one-time "flash" message left by the previous action
+     NOTE: variables here start with "nav" so they never clash with page variables.
+     ============================================================ --%>
+<%@ page import="com.yep.model.User,com.yep.util.FlashMessage,com.yep.util.ValidationUtil" %>
+<%!
+    /** HTML-escapes any value before it is printed into the page. */
+    static String esc(Object value) {
+        return ValidationUtil.escapeHtml(value);
+    }
+
+    /** Builds one menu link, highlighted when it matches the current page. */
+    static String navLink(String ctx, String current, String href, String icon, String label) {
+        boolean active = current.equals(href);
+        return "<a href=\"" + ctx + href + "\"" + (active ? " class=\"active\" aria-current=\"page\"" : "") + ">"
+             + "<iconify-icon icon=\"tabler:" + icon + "\" width=\"15\" height=\"15\"></iconify-icon> "
+             + label + "</a>";
+    }
+%>
+<%
+    User   navUser = (User) session.getAttribute("loggedInUser");
+    String navRole = (navUser != null) ? navUser.getRole() : "";
+    String navCtx  = request.getContextPath();
+    String navInit = (navUser != null && !navUser.getFullName().isEmpty())
+                     ? navUser.getFullName().substring(0, 1).toUpperCase() : "?";
+    String navName = (navUser != null) ? navUser.getFullName().split(" ")[0] : "";
+
+    // Work out the page the browser asked for (servlets forward to JSPs, so use the original URI)
+    Object navFwd  = request.getAttribute("jakarta.servlet.forward.request_uri");
+    Object navQs   = request.getAttribute("jakarta.servlet.forward.query_string");
+    String navPath = (navFwd != null ? navFwd.toString() : request.getRequestURI()).substring(navCtx.length());
+    String navQ    = navFwd != null ? (navQs != null ? navQs.toString() : null) : request.getQueryString();
+    if (navQ != null && navQ.startsWith("page=")) navPath += "?" + navQ.split("&")[0];
+%>
+<script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
+<a href="#main" class="skip-link">Skip to content</a>
+<nav aria-label="Main menu">
+    <div class="nav-inner">
+        <a class="nav-brand" href="<%= navCtx %>/" style="text-decoration:none;">
+            <span style="background:linear-gradient(135deg,#14532d,#16a34a);color:white;
+                         padding:5px 10px;border-radius:7px;font-size:.85rem;font-weight:800;">YEP</span>
+            <span style="color:var(--text);font-weight:700;font-size:.95rem;">System</span>
+        </a>
+
+        <button class="nav-toggle" type="button"
+                onclick="document.getElementById('navLinks').classList.toggle('open')"
+                aria-label="Toggle menu" aria-controls="navLinks">
+            <iconify-icon icon="tabler:menu-2" width="22" height="22"></iconify-icon>
+        </button>
+
+        <div class="nav-links" id="navLinks">
+            <% if ("PARTICIPANT".equals(navRole)) { %>
+                <%= navLink(navCtx, navPath, "/participant/dashboard.jsp", "layout-dashboard", "Dashboard") %>
+                <%= navLink(navCtx, navPath, "/sessions", "book", "Sessions") %>
+                <%= navLink(navCtx, navPath, "/team", "users-group", "My Team") %>
+                <%= navLink(navCtx, navPath, "/project", "bulb", "Project") %>
+                <%= navLink(navCtx, navPath, "/opportunities", "briefcase", "Opportunities") %>
+            <% } else if ("FACILITATOR".equals(navRole)) { %>
+                <%= navLink(navCtx, navPath, "/facilitator/dashboard.jsp", "layout-dashboard", "Dashboard") %>
+                <%= navLink(navCtx, navPath, "/sessions", "calendar-event", "Sessions") %>
+                <%= navLink(navCtx, navPath, "/quiz", "clipboard-list", "Assessments") %>
+            <% } else if ("MENTOR".equals(navRole)) { %>
+                <%= navLink(navCtx, navPath, "/mentor/dashboard.jsp", "layout-dashboard", "Dashboard") %>
+                <%= navLink(navCtx, navPath, "/project", "folder-open", "Projects") %>
+                <%= navLink(navCtx, navPath, "/talent", "id-badge-2", "Talent") %>
+            <% } else if ("ADMIN".equals(navRole)) { %>
+                <%= navLink(navCtx, navPath, "/admin", "layout-dashboard", "Dashboard") %>
+                <%= navLink(navCtx, navPath, "/admin?page=users", "users", "Users") %>
+                <%= navLink(navCtx, navPath, "/admin?page=promote", "trending-up", "Promote") %>
+                <%= navLink(navCtx, navPath, "/admin?page=teams", "network", "Teams") %>
+                <%= navLink(navCtx, navPath, "/admin?page=certificates", "certificate", "Certificates") %>
+                <%= navLink(navCtx, navPath, "/admin?page=reports", "chart-bar", "Reports") %>
+                <%= navLink(navCtx, navPath, "/opportunities", "briefcase", "Opportunities") %>
+            <% } else { %>
+                <%-- Visitors (employers, partners) who are not signed in --%>
+                <%= navLink(navCtx, navPath, "/", "home", "Home") %>
+                <%= navLink(navCtx, navPath, "/opportunities", "briefcase", "Opportunities") %>
+                <%= navLink(navCtx, navPath, "/talent", "id-badge-2", "Talent") %>
+                <%= navLink(navCtx, navPath, "/verify", "rosette-discount-check", "Verify") %>
+            <% } %>
+
+            <% if (navUser != null) { %>
+            <a href="<%= navCtx %>/profile" class="nav-user<%= "/profile".equals(navPath) ? " active" : "" %>"
+               title="My profile — <%= esc(navUser.getFullName()) %> (<%= esc(navRole.toLowerCase()) %>)">
+                <div class="nav-avatar"><%= esc(navInit) %></div>
+                <span><%= esc(navName) %></span>
+            </a>
+            <a href="<%= navCtx %>/logout" class="nav-logout btn btn-sm btn-outline"
+               style="display:inline-flex;align-items:center;gap:5px;">
+                <iconify-icon icon="tabler:logout" width="14" height="14"></iconify-icon> Sign Out
+            </a>
+            <% } else { %>
+            <a href="<%= navCtx %>/login" class="btn btn-sm btn-outline">Sign In</a>
+            <a href="<%= navCtx %>/register" class="btn btn-sm btn-primary" style="color:#fff;">Join YEP</a>
+            <% } %>
+        </div>
+    </div>
+</nav>
+<%
+    // One-time message from the previous action (see BaseServlet.flash)
+    FlashMessage navFlash = (FlashMessage) session.getAttribute(FlashMessage.SESSION_KEY);
+    if (navFlash != null) {
+        session.removeAttribute(FlashMessage.SESSION_KEY);
+%>
+<div class="flash-wrap">
+    <div class="alert alert-<%= esc(navFlash.getType()) %>" role="<%= "error".equals(navFlash.getType()) ? "alert" : "status" %>">
+        <%= esc(navFlash.getText()) %>
+    </div>
+</div>
+<% } %>
